@@ -1,0 +1,35 @@
+#!/bin/sh
+# Maven Wrapper Script
+# ----------------------------------------------------------------------------
+# Licensed to the Apache Software Foundation (ASF)
+set -e
+
+# Determine MAVEN_USER_HOME
+if [ -z "$MAVEN_USER_HOME" ]; then
+  MAVEN_USER_HOME="$HOME/.m2"
+fi
+
+# Wrapper jar location
+MAVEN_PROJECTBASEDIR=$(dirname "$0")
+WRAPPER_JAR="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.jar"
+WRAPPER_PROPERTIES="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.properties"
+
+# Read distributionUrl from properties
+DISTRIBUTION_URL=$(grep distributionUrl "$WRAPPER_PROPERTIES" | cut -d= -f2-)
+
+# Derive Maven home from distribution URL
+DISTRIBUTION_ID=$(basename "$DISTRIBUTION_URL" .zip)
+MAVEN_HOME="$MAVEN_USER_HOME/wrapper/dists/$DISTRIBUTION_ID"
+
+if [ ! -d "$MAVEN_HOME" ]; then
+  echo "Downloading Maven..."
+  mkdir -p "$MAVEN_HOME"
+  tmpZip="$MAVEN_HOME/maven.zip"
+  curl -fL "$DISTRIBUTION_URL" -o "$tmpZip"
+  unzip -qo "$tmpZip" -d "$MAVEN_HOME"
+  rm "$tmpZip"
+fi
+
+# Find the extracted directory
+MAVEN_BIN=$(find "$MAVEN_HOME" -name "mvn" -maxdepth 3 | head -1)
+exec "$MAVEN_BIN" "$@"

@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+.qodo/
+
+# env files (each subproject has its own)
+.env
+.env.local
+
+# OS
+Thumbs.db
