@@ -2,16 +2,25 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
+import AuthLayout from '../components/AuthLayout';
 
-const inp = 'w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm';
+const inp =
+  'w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg ' +
+  'bg-white/70 dark:bg-gray-800/70 text-gray-900 dark:text-gray-100 ' +
+  'placeholder-gray-400 dark:placeholder-gray-500 ' +
+  'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm ' +
+  'backdrop-blur-sm';
+
 const lbl = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+  const from =
+    (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +35,9 @@ const LoginPage: React.FC = () => {
       await login(email, password);
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid email or password';
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Invalid email or password';
       toast.error(msg);
     } finally {
       setIsLoading(false);
@@ -34,51 +45,98 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <AuthLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+      >
+        {/* Logo + heading */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.35, delay: 0.08 }}
+            className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4
+                       shadow-lg shadow-indigo-500/40"
+          >
             <GraduationCap className="w-8 h-8 text-white" />
-          </div>
+          </motion.div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to EduPlatform</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-8">
+        {/* Glass card */}
+        <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl
+                        shadow-xl shadow-black/5 dark:shadow-black/40
+                        border border-gray-200/60 dark:border-white/10 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className={lbl}>Email address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com" required autoComplete="email" className={inp} />
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+                className={inp}
+              />
             </div>
 
             <div>
               <label className={lbl}>Password</label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password}
-                  onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-                  required autoComplete="current-password" className={inp + ' pr-11'} />
-                <button type="button" tabIndex={-1} onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className={inp + ' pr-11'}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400
+                             hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={isLoading}
-              className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-              {isLoading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-medium
+                         hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                         focus:ring-offset-2 dark:focus:ring-offset-gray-900
+                         disabled:opacity-60 disabled:cursor-not-allowed transition-colors
+                         flex items-center justify-center gap-2
+                         shadow-md shadow-indigo-500/30"
+            >
+              {isLoading && (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700">Create one</Link>
+            <Link
+              to="/register"
+              className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700"
+            >
+              Create one
+            </Link>
           </p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </AuthLayout>
   );
 };
 
