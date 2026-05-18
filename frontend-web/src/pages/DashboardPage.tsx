@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen, Users, ClipboardCheck, Clock, ArrowRight } from 'lucide-react';
+import { BookOpen, Users, ClipboardCheck, Clock, ArrowRight, Hourglass } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
@@ -263,36 +263,59 @@ const StudentDashboard: React.FC = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Pending Exercises</h2>
           <div className="space-y-3">
-            {pendingExercises.slice(0, 5).map((exercise) => (
-              <Link
-                key={exercise.id}
-                to={`/exercises/${exercise.id}`}
-                className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4 flex items-center justify-between hover:border-indigo-200 dark:hover:border-indigo-700 hover:shadow-sm transition-all group"
-              >
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    {exercise.title}
-                  </h3>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    <span
-                      className={`px-1.5 py-0.5 rounded font-medium ${
-                        exercise.type === 'CODE'
-                          ? 'bg-purple-50 text-purple-700'
-                          : exercise.type === 'MULTIPLE_CHOICE'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {exercise.type.replace('_', ' ')}
-                    </span>
-                    {exercise.dueDate && (
-                      <span>Due {formatDistanceToNow(new Date(exercise.dueDate), { addSuffix: true })}</span>
-                    )}
+            {pendingExercises.slice(0, 5).map((exercise) => {
+              const isPending = exercise.mySubmissionStatus === 'PENDING';
+              return (
+                <Link
+                  key={exercise.id}
+                  to={`/exercises/${exercise.id}`}
+                  className={`rounded-xl border p-4 flex items-center justify-between hover:shadow-sm transition-all group ${
+                    isPending
+                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-700/50 hover:border-amber-300 dark:hover:border-amber-600'
+                      : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-indigo-200 dark:hover:border-indigo-700'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`font-medium transition-colors ${
+                        isPending
+                          ? 'text-amber-900 dark:text-amber-200 group-hover:text-amber-700 dark:group-hover:text-amber-300'
+                          : 'text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                      }`}>
+                        {exercise.title}
+                      </h3>
+                      {isPending && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs font-medium">
+                          <Hourglass size={10} />
+                          Submitted
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      <span
+                        className={`px-1.5 py-0.5 rounded font-medium ${
+                          exercise.type === 'CODE'
+                            ? 'bg-purple-50 text-purple-700'
+                            : exercise.type === 'MULTIPLE_CHOICE'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {exercise.type.replace('_', ' ')}
+                      </span>
+                      {exercise.dueDate && (
+                        <span>Due {formatDistanceToNow(new Date(exercise.dueDate), { addSuffix: true })}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
-              </Link>
-            ))}
+                  <ArrowRight className={`w-4 h-4 transition-colors ${
+                    isPending
+                      ? 'text-amber-400 dark:text-amber-500 group-hover:text-amber-600 dark:group-hover:text-amber-400'
+                      : 'text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                  }`} />
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

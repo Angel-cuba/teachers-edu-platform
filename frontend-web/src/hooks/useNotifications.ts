@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Notification } from '../types';
 import api from '../api/axios';
-import { subscribeToUserNotifications } from '../api/websocket';
+import { subscribeToUserNotifications, onClientConnect } from '../api/websocket';
 import { useAuth } from './useAuth';
 
 export const useNotifications = () => {
@@ -40,34 +40,47 @@ export const useNotifications = () => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Subscribe to WebSocket notifications
+  // Subscribe to WebSocket notifications.
+  // Uses onClientConnect() to defer the subscription until the STOMP connection
+  // is ready — avoids the "no underlying STOMP connection" crash on page reload
+  // where AuthContext sets user before wsConnect()'s onConnect has fired.
+  // The handler also re-runs on each reconnect, so subscriptions survive network drops.
   useEffect(() => {
     if (!user) return;
 
-    const unsubscribe = subscribeToUserNotifications(user.id, (message) => {
-      try {
-        const notification = JSON.parse(message.body) as Notification;
-        if (mountedRef.current) {
-          setNotifications((prev) => [notification, ...prev]);
-          toast(notification.message, { icon: '🔔', duration: 4000 });
+    let unsubscribeStomp = () => {};
 
-          // Sync React Query caches so pages update without manual refresh
-          qc.invalidateQueries({ queryKey: ['notifications'] });
-          if (notification.type === 'GRADE_PUBLISHED') {
-            qc.invalidateQueries({ queryKey: ['exercises'] }); // updates mySubmissionStatus on CourseDetailPage
-            qc.invalidateQueries({ queryKey: ['my-results'] });
-          } else if (notification.type === 'NEW_EXERCISE') {
-            qc.invalidateQueries({ queryKey: ['exercises'] });
-            qc.invalidateQueries({ queryKey: ['courses'] });
+    const removeConnectHandler = onClientConnect(() => {
+      // Unsubscribe any previous subscription (e.g. after a reconnect)
+      unsubscribeStomp();
+      unsubscribeStomp = subscribeToUserNotifications(user.id, (message) => {
+        try {
+          const notification = JSON.parse(message.body) as Notification;
+          if (mountedRef.current) {
+            setNotifications((prev) => [notification, ...prev]);
+            toast(notification.message, { icon: '🔔', duration: 4000 });
+
+            // Sync React Query caches so pages update without manual refresh
+            qc.invalidateQueries({ queryKey: ['notifications'] });
+            if (notification.type === 'GRADE_PUBLISHED') {
+              qc.invalidateQueries({ queryKey: ['exercises'] }); // updates mySubmissionStatus on CourseDetailPage
+              qc.invalidateQueries({ queryKey: ['my-results'] });
+            } else if (notification.type === 'NEW_EXERCISE') {
+              qc.invalidateQueries({ queryKey: ['exercises'] });
+              qc.invalidateQueries({ queryKey: ['courses'] });
+            }
           }
+        } catch {
+          // malformed WS message — ignore
         }
-      } catch {
-        // malformed WS message — ignore
-      }
+      });
     });
 
-    return unsubscribe;
-  }, [user]);
+    return () => {
+      removeConnectHandler();
+      unsubscribeStomp();
+    };
+  }, [user, qc]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

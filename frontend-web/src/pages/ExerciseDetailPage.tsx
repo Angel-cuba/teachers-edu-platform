@@ -32,11 +32,28 @@ export default function ExerciseDetailPage() {
   const submit = useMutation({
     mutationFn: (answer: string) =>
       api.post(`/exercises/${id}/submit`, { answer }).then(r => r.data),
+    // Optimistically flip the card to amber in the dashboard pending list
+    // so the user gets immediate visual feedback without waiting for the refetch.
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ['student-pending-exercises'] })
+      const prev = qc.getQueryData<Exercise[]>(['student-pending-exercises'])
+      qc.setQueryData<Exercise[]>(['student-pending-exercises'], (old) =>
+        old?.map((e) => (e.id === id ? { ...e, mySubmissionStatus: 'PENDING' } : e)) ?? []
+      )
+      return { prev }
+    },
     onSuccess: () => {
       toast.success('Respuesta enviada')
       qc.invalidateQueries({ queryKey: ['submissions', id] })
+      // Refetch dashboard pending list and stats so count updates correctly
+      qc.invalidateQueries({ queryKey: ['student-pending-exercises'] })
+      qc.invalidateQueries({ queryKey: ['student-stats'] })
     },
-    onError: (e: unknown) => toast.error(extractErrorMessage(e, 'Error al enviar')),
+    onError: (e: unknown, _answer, ctx) => {
+      // Roll back the optimistic update if the request fails
+      if (ctx?.prev) qc.setQueryData(['student-pending-exercises'], ctx.prev)
+      toast.error(extractErrorMessage(e, 'Error al enviar'))
+    },
   })
 
   if (isLoading) return <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>

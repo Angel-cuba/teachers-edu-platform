@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { IMessage } from '@stomp/stompjs';
-import { subscribeToUserNotifications, getClient } from '../api/websocket';
+import { onClientConnect, getClient } from '../api/websocket';
 import { useAuth } from './useAuth';
 
+/**
+ * Generic hook to subscribe to an arbitrary STOMP topic.
+ * Uses onClientConnect() so the subscription is deferred until the
+ * connection is ready — safe to call on page reload or before wsConnect resolves.
+ */
 export const useWebSocket = (
   topic: string,
   onMessage: (message: IMessage) => void,
@@ -15,33 +20,25 @@ export const useWebSocket = (
   useEffect(() => {
     if (!enabled || !user) return;
 
-    const client = getClient();
-    if (!client || !client.active) return;
+    let unsubscribeStomp = () => {};
 
-    const subscription = client.subscribe(topic, (msg) => {
-      onMessageRef.current(msg);
+    const removeHandler = onClientConnect(() => {
+      const client = getClient();
+      if (!client?.connected) return;
+
+      // Unsubscribe previous subscription (in case of reconnect)
+      unsubscribeStomp();
+      const sub = client.subscribe(topic, (msg) => {
+        onMessageRef.current(msg);
+      });
+      unsubscribeStomp = () => sub.unsubscribe();
     });
 
     return () => {
-      subscription.unsubscribe();
+      removeHandler();
+      unsubscribeStomp();
     };
   }, [topic, enabled, user]);
-};
-
-export const useUserNotificationsSocket = (
-  onMessage: (message: IMessage) => void
-) => {
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!user) return;
-
-    const unsubscribe = subscribeToUserNotifications(user.id, (msg) => {
-      onMessage(msg);
-    });
-
-    return unsubscribe;
-  }, [user, onMessage]);
 };
 
 export default useWebSocket;

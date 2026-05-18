@@ -3,6 +3,9 @@ import SockJS from 'sockjs-client';
 
 let stompClient: Client | null = null;
 
+// Handlers registered via onClientConnect() — fired on every onConnect (initial + reconnects)
+const connectHandlers = new Set<() => void>();
+
 export const connect = (token: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     stompClient = new Client({
@@ -12,6 +15,8 @@ export const connect = (token: string): Promise<void> => {
       },
       reconnectDelay: 5000,
       onConnect: () => {
+        // Fire all deferred subscriptions (initial connect and each reconnect)
+        connectHandlers.forEach((h) => h());
         resolve();
       },
       onStompError: (frame) => {
@@ -29,13 +34,15 @@ export const disconnect = (): void => {
     stompClient.deactivate();
     stompClient = null;
   }
+  connectHandlers.clear();
 };
 
 export const subscribeToUserNotifications = (
   userId: string,
   callback: (message: IMessage) => void
 ): (() => void) => {
-  if (!stompClient || !stompClient.active) {
+  // Use .connected (true only after onConnect) — not .active (true from activate())
+  if (!stompClient || !stompClient.connected) {
     console.warn('STOMP client not connected');
     return () => {};
   }
@@ -46,6 +53,23 @@ export const subscribeToUserNotifications = (
   );
 
   return () => subscription.unsubscribe();
+};
+
+/**
+ * Register a handler to run as soon as the STOMP connection is ready.
+ * - If already connected: fires immediately.
+ * - If connecting/reconnecting: deferred until onConnect fires.
+ * - Fires again on each reconnect so subscriptions survive network drops.
+ *
+ * Returns a cleanup function that removes the handler from the registry.
+ */
+export const onClientConnect = (handler: () => void): (() => void) => {
+  if (stompClient?.connected) {
+    handler();
+    return () => {};
+  }
+  connectHandlers.add(handler);
+  return () => connectHandlers.delete(handler);
 };
 
 export const getClient = (): Client | null => stompClient;
