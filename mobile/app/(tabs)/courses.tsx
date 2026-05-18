@@ -56,7 +56,7 @@ export default function CoursesScreen() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => router.push(`/course/${item.id}` as `/${string}`)}
+            onPress={() => router.push({ pathname: '/course/[id]', params: { id: item.id } })}
             style={{ backgroundColor: colors.card, borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 }}
           >
             <View style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: isDark ? '#1E1B4B' : '#EEF2FF', justifyContent: 'center', alignItems: 'center' }}>

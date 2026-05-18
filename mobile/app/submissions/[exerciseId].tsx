@@ -46,7 +46,7 @@ export default function SubmissionsScreen() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => router.push(`/grade/${item.id}` as any)}
+            onPress={() => router.push({ pathname: '/grade/[submissionId]', params: { submissionId: item.id } })}
             style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
           >
             <View style={{ flex: 1 }}>

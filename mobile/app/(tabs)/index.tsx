@@ -156,7 +156,7 @@ export default function DashboardScreen() {
           courses.slice(0, 3).map(course => (
             <TouchableOpacity
               key={course.id}
-              onPress={() => router.push(`/course/${course.id}` as `/${string}`)}
+              onPress={() => router.push({ pathname: '/course/[id]', params: { id: course.id } })}
               style={{
                 backgroundColor: colors.card,
                 borderRadius: 16,
@@ -199,7 +199,7 @@ export default function DashboardScreen() {
               exercise={ex}
               index={i}
               colors={colors}
-              onPress={() => router.push(`/exercise/${ex.id}` as `/${string}`)}
+              onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: ex.id } })}
             />
           ))}
         </Animated.View>

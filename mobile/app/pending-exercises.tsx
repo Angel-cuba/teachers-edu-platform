@@ -96,7 +96,7 @@ export default function PendingExercisesScreen() {
             exercise={item}
             index={index}
             colors={colors}
-            onPress={() => router.push(`/exercise/${item.id}` as `/${string}`)}
+            onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: item.id } })}
           />
         )}
       />

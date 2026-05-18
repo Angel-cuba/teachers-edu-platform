@@ -46,7 +46,7 @@ export default function CourseDetailScreen() {
       setShowCreate(false); setTitle(''); setDescription('');
       qc.invalidateQueries({ queryKey: ['exercises', id] });
     },
-    onError: (e: any) => Alert.alert('Error', e.message),
+    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
   });
 
   const updateCourse = useMutation({
@@ -57,7 +57,7 @@ export default function CourseDetailScreen() {
       setShowEdit(false);
       Alert.alert('Curso actualizado');
     },
-    onError: (e: any) => Alert.alert('Error', e.message),
+    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
   });
 
   const deleteCourse = useMutation({
@@ -66,7 +66,7 @@ export default function CourseDetailScreen() {
       qc.invalidateQueries({ queryKey: ['courses'] });
       router.replace('/(tabs)/courses');
     },
-    onError: (e: any) => Alert.alert('Error', e.message),
+    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
   });
 
   const openEdit = () => {
@@ -170,7 +170,7 @@ export default function CourseDetailScreen() {
 
           return (
           <TouchableOpacity
-            onPress={() => router.push(`/exercise/${item.id}` as any)}
+            onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: item.id } })}
             style={{
               backgroundColor: '#fff',
               borderRadius: 14,
@@ -317,7 +317,16 @@ export default function CourseDetailScreen() {
   );
 }
 
-function Field({ label, value, onChange, placeholder, multiline, keyboard }: any) {
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (text: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  keyboard?: 'default' | 'numeric' | 'email-address';
+}
+
+function Field({ label, value, onChange, placeholder, multiline, keyboard }: FieldProps) {
   return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>{label}</Text>
@@ -330,7 +339,9 @@ function Field({ label, value, onChange, placeholder, multiline, keyboard }: any
   );
 }
 
-function Badge({ label, color, bg }: any) {
+interface BadgeProps { label: string; color: string; bg: string; }
+
+function Badge({ label, color, bg }: BadgeProps) {
   return (
     <View style={{ backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
       <Text style={{ color, fontSize: 11, fontWeight: '600' }}>{label}</Text>
