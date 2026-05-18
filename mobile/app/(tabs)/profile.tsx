@@ -48,8 +48,8 @@ export default function ProfileScreen() {
       await api.patch('/users/me', { displayName: newName.trim() });
       await refreshUser();
       setEditingName(false);
-    } catch (e: any) {
-      Alert.alert(t.common.error, e.message ?? 'No se pudo guardar el nombre');
+    } catch (e: unknown) {
+      Alert.alert(t.common.error, (e as Error).message ?? 'No se pudo guardar el nombre');
     } finally {
       setSavingName(false);
     }
@@ -103,8 +103,8 @@ export default function ProfileScreen() {
       Alert.alert('✅', t.profile.passwordChanged);
       setPasswordModalVisible(false);
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
-    } catch (e: any) {
-      Alert.alert(t.common.error, e.message ?? 'No se pudo actualizar la contraseña');
+    } catch (e: unknown) {
+      Alert.alert(t.common.error, (e as Error).message ?? 'No se pudo actualizar la contraseña');
     } finally {
       setSavingPassword(false);
     }
@@ -120,7 +120,9 @@ export default function ProfileScreen() {
       const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
       const formData = new FormData();
-      formData.append('file', { uri, name: filename, type: mimeType } as any);
+      // React Native FormData accepts { uri, name, type } objects for file uploads,
+      // but the standard TypeScript FormData interface expects Blob — safe cast.
+      formData.append('file', { uri, name: filename, type: mimeType } as unknown as Blob);
 
       const res = await fetch(`${API_URL}/users/me/avatar`, {
         method: 'POST',
@@ -134,8 +136,8 @@ export default function ProfileScreen() {
       }
 
       await refreshUser();
-    } catch (e: any) {
-      Alert.alert(t.common.error, e.message ?? 'No se pudo subir la foto');
+    } catch (e: unknown) {
+      Alert.alert(t.common.error, (e as Error).message ?? 'No se pudo subir la foto');
     } finally {
       setUploadingAvatar(false);
     }
