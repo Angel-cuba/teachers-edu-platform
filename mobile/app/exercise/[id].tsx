@@ -154,7 +154,7 @@ export default function ExerciseDetailScreen() {
 
       {user?.role === 'TEACHER' && (
         <TouchableOpacity
-          onPress={() => router.push({ pathname: '/submissions/[id]', params: { id } })}
+          onPress={() => router.push({ pathname: '/submissions/[exerciseId]', params: { exerciseId: id } })}
           style={{ backgroundColor: '#4F46E5', borderRadius: 14, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}
         >
           <Users color="#fff" size={20} />
