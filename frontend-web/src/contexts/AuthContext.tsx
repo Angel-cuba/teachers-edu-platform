@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
 import { User } from '../types';
 import api, { setClerkTokenGetter } from '../api/axios';
-import { connect as wsConnect, disconnect as wsDisconnect } from '../api/websocket';
+import { connect as wsConnect, disconnect as wsDisconnect, setWsTokenGetter } from '../api/websocket';
 
 interface AuthContextType {
   user: User | null;
@@ -22,23 +22,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appUser, setAppUser] = useState<User | null>(null);
   const [isFetchingUser, setIsFetchingUser] = useState(false);
 
-  // Wire Clerk's getToken into the axios interceptor so every request
-  // automatically carries a fresh Bearer JWT without any manual storage.
+  // Generation counter: when two fetches are in flight concurrently (e.g. auto-fetch
+  // from isSignedIn effect + explicit refreshUser call), only the last-started fetch
+  // updates state. This prevents a stale GET from overwriting a fresher one.
+  const fetchGenRef = useRef(0);
+
+  // Wire Clerk's getToken into the axios interceptor and the WebSocket token getter.
   useEffect(() => {
     setClerkTokenGetter(getToken);
+    setWsTokenGetter(getToken);
   }, [getToken]);
 
-  const fetchAppUser = useCallback(async () => {
+  const fetchAppUser = useCallback(async (): Promise<User | null> => {
+    const generation = ++fetchGenRef.current;
     setIsFetchingUser(true);
     try {
       const { data } = await api.get<User>('/users/me');
-      setAppUser(data);
+      // Ignore results from superseded fetches (generation mismatch)
+      if (generation === fetchGenRef.current) {
+        setAppUser(data);
+      }
       return data;
     } catch {
-      setAppUser(null);
+      if (generation === fetchGenRef.current) {
+        setAppUser(null);
+      }
       return null;
     } finally {
-      setIsFetchingUser(false);
+      if (generation === fetchGenRef.current) {
+        setIsFetchingUser(false);
+      }
     }
   }, []);
 
@@ -50,8 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchAppUser().then(async (user) => {
         if (!user) return;
         try {
-          const token = await getToken();
-          if (token) await wsConnect(token);
+          // wsConnect() uses beforeConnect to fetch a fresh token before each attempt
+          await wsConnect();
         } catch {
           console.warn('WebSocket connection failed — real-time notifications unavailable');
         }
@@ -60,8 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAppUser(null);
       wsDisconnect();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, fetchAppUser]);
 
   const logout = useCallback(async () => {
     wsDisconnect();
@@ -73,6 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchAppUser();
   }, [fetchAppUser]);
 
+  // isLoading is true in two cases:
+  // 1. Clerk has not finished initialising (!isLoaded)
+  // 2. Clerk says we're signed in but we haven't fetched the app-level user yet —
+  //    without this guard, ProtectedRoute would redirect to /login before the
+  //    role-bearing User object arrives from the backend.
   const isLoading = !isLoaded || (!!isSignedIn && isFetchingUser && !appUser);
 
   return (

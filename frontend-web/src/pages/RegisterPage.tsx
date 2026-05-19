@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSignUp } from '@clerk/clerk-react';
 import api from '../api/axios';
+import { useAuth } from '../hooks/useAuth';
 import AuthLayout from '../components/AuthLayout';
 
 const inp =
@@ -19,6 +20,7 @@ type Step = 'register' | 'verify';
 
 const RegisterPage: React.FC = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
 
   // Registration form state
@@ -119,18 +121,31 @@ const RegisterPage: React.FC = () => {
   };
 
   // ── Finalize: activate session + set role in our backend ─────────────────
+  // Ordering matters here to prevent a race condition:
+  //   1. setActive()    → Clerk marks session active; AuthContext starts auto-fetch (GET /users/me)
+  //   2. PATCH /users/me → commits the chosen role to the DB
+  //   3. refreshUser()  → issues a new GET after the PATCH; generation counter in AuthContext
+  //                       ensures this last GET wins over the earlier auto-fetch GET
+  //   4. navigate()     → user arrives at dashboard with the correct role already in context
   const completeSignUp = async (sessionId: string) => {
-    if (!setActive) return;
+    if (!setActive) {
+      toast.error('Authentication service unavailable. Please refresh and try again.');
+      return;
+    }
+
     await setActive({ session: sessionId });
 
-    // Set the chosen role in our backend (webhook sets STUDENT by default)
-    if (form.role !== 'STUDENT') {
-      try {
-        await api.patch('/users/me', { role: form.role });
-      } catch {
-        console.warn('Could not set role — defaulting to STUDENT');
-      }
+    // Always PATCH so the role is committed before we re-fetch
+    try {
+      await api.patch('/users/me', { role: form.role });
+    } catch {
+      toast.error('Account created but could not set your role. Please contact support.');
+      return;
     }
+
+    // Force a fresh GET that reads the committed role — wins over any concurrent
+    // auto-fetch triggered by the setActive() call above
+    await refreshUser();
 
     navigate('/dashboard', { replace: true });
     toast.success('Account created!');

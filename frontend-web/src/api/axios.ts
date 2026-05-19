@@ -12,9 +12,12 @@ export const api = axios.create({
 // ── Clerk token injection ─────────────────────────────────────────────────────
 // AuthContext calls setClerkTokenGetter() on mount so the interceptor can
 // fetch a fresh Clerk JWT without importing React hooks here.
-let _getToken: (() => Promise<string | null>) | null = null;
+// The getter accepts an optional options object so callers can force a cache
+// bypass (skipCache: true) when retrying a 401.
+type ClerkGetToken = (opts?: { skipCache?: boolean; template?: string }) => Promise<string | null>;
+let _getToken: ClerkGetToken | null = null;
 
-export const setClerkTokenGetter = (fn: () => Promise<string | null>) => {
+export const setClerkTokenGetter = (fn: ClerkGetToken) => {
   _getToken = fn;
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,8 +47,10 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Force Clerk to issue a fresh token (skips its internal cache)
-        const token = await _getToken();
+        // skipCache: true forces Clerk to bypass its internal cache and issue
+        // a new token even if it considers the existing one still valid.
+        // This handles server-side rejection (clock skew, key rotation, revocation).
+        const token = await _getToken({ skipCache: true });
         if (token) {
           originalRequest.headers['Authorization'] = `Bearer ${token}`;
           return api(originalRequest);

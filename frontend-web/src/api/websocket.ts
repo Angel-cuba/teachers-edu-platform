@@ -6,12 +6,26 @@ let stompClient: Client | null = null;
 // Handlers registered via onClientConnect() — fired on every onConnect (initial + reconnects)
 const connectHandlers = new Set<() => void>();
 
-export const connect = (token: string): Promise<void> => {
+// Token getter set by AuthContext — called before each connection attempt
+// so reconnects always use a fresh Clerk JWT, never a stale one.
+type TokenGetter = () => Promise<string | null>;
+let _getWsToken: TokenGetter | null = null;
+
+export const setWsTokenGetter = (fn: TokenGetter) => {
+  _getWsToken = fn;
+};
+
+export const connect = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     stompClient = new Client({
       webSocketFactory: () => new SockJS('/ws'),
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
+      // beforeConnect is called before the initial connect AND every reconnect.
+      // Fetching the token here ensures reconnects always use a fresh Clerk JWT.
+      beforeConnect: async () => {
+        const token = _getWsToken ? await _getWsToken() : null;
+        stompClient!.connectHeaders = token
+          ? { Authorization: `Bearer ${token}` }
+          : {};
       },
       reconnectDelay: 5000,
       onConnect: () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { User, Lock, Save, Sun, Moon, Monitor, ExternalLink } from 'lucide-react'
@@ -11,17 +11,29 @@ import { useLang } from '../contexts/LanguageContext'
 import type { Lang } from '../i18n'
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { openUserProfile } = useClerk()
   const { mode, setMode } = useTheme()
   const { lang, setLang, t } = useLang()
 
-  // Profile form state
+  // Profile form state — initialised from user; synced when user loads asynchronously
+  // (useState initialiser only runs once, so we need the effect for the async case)
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
+  const [isDirty, setIsDirty] = useState(false)
+
+  useEffect(() => {
+    if (!isDirty && user?.displayName) {
+      setDisplayName(user.displayName)
+    }
+  }, [user?.displayName, isDirty])
 
   const updateProfile = useMutation({
     mutationFn: () => api.patch('/users/me', { displayName }),
-    onSuccess: () => toast.success(t.profile.profileUpdated),
+    onSuccess: async () => {
+      setIsDirty(false)
+      await refreshUser()
+      toast.success(t.profile.profileUpdated)
+    },
     onError: (e: unknown) => toast.error(extractErrorMessage(e, t.profile.errorUpdate)),
   })
 
@@ -82,7 +94,7 @@ export default function ProfilePage() {
             <label className={labelCls}>{t.profile.visibleName}</label>
             <input
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => { setDisplayName(e.target.value); setIsDirty(true); }}
               required
               minLength={2}
               className={inputCls}
