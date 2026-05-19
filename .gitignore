@@ -3,10 +3,13 @@
 .AppleDouble
 .LSOverride
 
-# IDE
+# IDE / AI tools (local config, not project-specific)
 .idea/
 .vscode/
 .qodo/
+.cursor/
+.aider*
+*.aider
 
 # env files (each subproject has its own)
 .env
