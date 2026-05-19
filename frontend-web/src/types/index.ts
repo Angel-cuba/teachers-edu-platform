@@ -8,12 +8,6 @@ export interface User {
   avatarUrl?: string;
 }
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-}
-
 export interface Course {
   id: string;
   title: string;

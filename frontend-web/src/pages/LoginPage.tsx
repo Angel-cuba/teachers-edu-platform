@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { useAuth } from '../hooks/useAuth';
+import { useSignIn } from '@clerk/clerk-react';
 import AuthLayout from '../components/AuthLayout';
 
 const inp =
@@ -16,7 +16,7 @@ const inp =
 const lbl = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5';
 
 const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { signIn, setActive, isLoaded } = useSignIn();
   const navigate = useNavigate();
   const location = useLocation();
   const from =
@@ -29,14 +29,25 @@ const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoaded) return;
     if (!email || !password) { toast.error('Please fill in all fields'); return; }
+
     setIsLoading(true);
     try {
-      await login(email, password);
-      navigate(from, { replace: true });
+      const result = await signIn.create({ identifier: email, password });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        navigate(from, { replace: true });
+      } else {
+        // Unexpected status (e.g. MFA required) — not handled in this phase
+        toast.error('Sign-in incomplete. Please try again.');
+      }
     } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ message?: string; longMessage?: string }> };
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        clerkErr?.errors?.[0]?.longMessage ||
+        clerkErr?.errors?.[0]?.message ||
         'Invalid email or password';
       toast.error(msg);
     } finally {
@@ -102,6 +113,7 @@ const LoginPage: React.FC = () => {
                   onClick={() => setShowPassword(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400
                              hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -110,7 +122,7 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !isLoaded}
               className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-medium
                          hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
                          focus:ring-offset-2 dark:focus:ring-offset-gray-900

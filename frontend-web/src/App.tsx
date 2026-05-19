@@ -19,11 +19,13 @@ import PendingGradesPage from "./pages/PendingGradesPage";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    // AuthProvider must be inside BrowserRouter so Clerk's useAuth hooks work
+    // (ClerkProvider is already above BrowserRouter in main.tsx)
+    <BrowserRouter>
+      <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login/*" element={<LoginPage />} />
+          <Route path="/register/*" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -52,7 +54,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
