@@ -3,7 +3,6 @@ package com.edu.platform.common.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
@@ -25,10 +24,9 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, "Access denied");
     }
 
-    // Handles BadCredentialsException and any other Spring Security auth exception
-    @ExceptionHandler({ BadCredentialsException.class, AuthenticationException.class })
-    public ResponseEntity<Map<String, Object>> handleAuth(RuntimeException ex) {
-        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleAuth(AuthenticationException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "Authentication required");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

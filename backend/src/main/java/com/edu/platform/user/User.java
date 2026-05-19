@@ -24,10 +24,15 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Clerk user ID — e.g. "user_2abc..." */
+    @Column(unique = true)
+    private String clerkId;
+
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    /** Nullable: password auth is now handled by Clerk */
+    @Column
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)

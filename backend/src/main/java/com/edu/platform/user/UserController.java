@@ -8,7 +8,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,7 +22,6 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.uploads.dir}")
     private String uploadsDir;
@@ -57,34 +55,6 @@ public class UserController {
 
         user = userService.save(user);
         return ResponseEntity.ok(toMap(user));
-    }
-
-    // ── PATCH /api/users/me/password ──────────────────────────────────────
-    @PatchMapping("/me/password")
-    public ResponseEntity<?> changePassword(
-            @AuthenticationPrincipal User currentUser,
-            @RequestBody Map<String, String> body) {
-
-        String currentPassword = body.get("currentPassword");
-        String newPassword     = body.get("newPassword");
-
-        if (currentPassword == null || newPassword == null || newPassword.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Completa todos los campos"));
-        }
-        if (newPassword.length() < 6) {
-            return ResponseEntity.badRequest().body(Map.of("message", "La contraseña debe tener al menos 6 caracteres"));
-        }
-
-        User user = userService.findById(currentUser.getId());
-
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "La contraseña actual es incorrecta"));
-        }
-
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userService.save(user);
-
-        return ResponseEntity.ok(Map.of("message", "Contraseña actualizada correctamente"));
     }
 
     // ── POST /api/users/me/avatar ──────────────────────────────────────────
