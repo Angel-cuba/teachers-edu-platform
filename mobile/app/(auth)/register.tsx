@@ -18,7 +18,7 @@ const ROLES = [
 
 export default function RegisterScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const { colors, isDark } = useTheme();
 
   // Step 1: registration form
@@ -82,17 +82,21 @@ export default function RegisterScreen() {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === 'complete') {
-        // Activate the session first — this triggers AuthContext's isSignedIn → fetchAppUser()
+        // Activate the session — triggers AuthContext isSignedIn → fetchAppUser() (gen N)
         await setActive({ session: result.createdSessionId });
-        // PATCH role + displayName while generation counter lets refreshUser win
+        // PATCH role + displayName. If this fails, sign out to avoid the user
+        // landing in the app with an incomplete profile (no role).
         try {
           await api.patch('/users/me', { role: pendingRole, displayName: pendingName });
         } catch {
-          Alert.alert('Aviso', 'Cuenta creada, pero no se pudo asignar el rol. Contacta soporte.');
+          await logout(); // undo session activation — user must retry registration
+          Alert.alert('Error', 'No se pudo asignar el rol. Por favor intenta de nuevo.');
           return;
         }
-        // refreshUser() increments generation counter — its GET wins over the auto-fetch
+        // refreshUser() (gen N+1) wins over the auto-fetch — correct role guaranteed
         await refreshUser();
+      } else if (result.status === 'needs_second_factor') {
+        Alert.alert('Autenticación adicional requerida', 'Esta cuenta requiere un segundo factor de verificación.');
       } else {
         Alert.alert('Error', 'No se pudo verificar. Revisa el código e intenta de nuevo.');
       }

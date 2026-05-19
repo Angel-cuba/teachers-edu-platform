@@ -8,9 +8,8 @@ import { ClerkProvider, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { LanguageProvider } from '../context/LanguageContext';
-import { connectWS, disconnectWS } from '../lib/websocket';
+import { connectWS, disconnectWS, setWsTokenGetter } from '../lib/websocket';
 import { setClerkTokenGetter } from '../lib/api';
-import { setWsTokenGetter } from '../lib/websocket';
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 if (!CLERK_PUBLISHABLE_KEY) {
@@ -24,8 +23,14 @@ const tokenCache = {
     catch { return null; }
   },
   async saveToken(key: string, value: string) {
-    try { await SecureStore.setItemAsync(key, value); }
-    catch {}
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (e) {
+      // SecureStore has a 2048-byte limit per value. If exceeded (e.g. large
+      // Clerk JWTs with custom claims), token won't survive app restarts but
+      // Clerk's in-memory cache keeps the session alive for the current run.
+      console.warn('[tokenCache] Failed to persist token — session will not survive restart:', e);
+    }
   },
   async clearToken(key: string) {
     try { await SecureStore.deleteItemAsync(key); }
@@ -37,7 +42,13 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
-/** Wires the Clerk token getter into api.ts and websocket.ts right after ClerkProvider mounts. */
+/**
+ * Wires Clerk's getToken into api.ts and websocket.ts.
+ * Must render as the first child inside AuthProvider so its useEffect fires
+ * before AuthProvider's own useEffect (React fires children's effects first).
+ * Clerk does not guarantee getToken is referentially stable — the dep array
+ * re-registers the getter whenever Clerk rotates its internal reference.
+ */
 function ClerkTokenBridge() {
   const { getToken } = useClerkAuth();
 
@@ -45,7 +56,6 @@ function ClerkTokenBridge() {
     const getter = () => getToken();
     setClerkTokenGetter(getter);
     setWsTokenGetter(getter);
-    // Nothing to clean up — getter identity is stable
   }, [getToken]);
 
   return null;
@@ -122,11 +132,13 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache}>
-      <ClerkTokenBridge />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>
+              {/* ClerkTokenBridge must be first — its effect wires the token getter
+                  before AuthProvider's own effect calls fetchAppUser() */}
+              <ClerkTokenBridge />
               <RootGuard />
               <AppShell />
             </AuthProvider>

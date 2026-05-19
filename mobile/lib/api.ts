@@ -29,7 +29,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const fresh = await _getToken({ skipCache: true });
     if (fresh) {
       headers['Authorization'] = `Bearer ${fresh}`;
-      const retry = await fetch(`${API_URL}${path}`, { ...options, headers });
+      // Explicitly reconstruct options so we don't rely on options.body
+      // still being readable (strings are safe; ReadableStreams are not).
+      const retry = await fetch(`${API_URL}${path}`, {
+        method: options.method,
+        body: options.body,
+        headers,
+      });
       if (!retry.ok) {
         const err = await retry.json().catch(() => ({}));
         throw new Error((err as { message?: string }).message ?? `HTTP ${retry.status}`);

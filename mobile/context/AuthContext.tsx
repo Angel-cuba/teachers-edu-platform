@@ -55,8 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isSignedIn, isLoaded, fetchAppUser]);
 
   const logout = useCallback(async () => {
-    fetchGenRef.current++;
+    fetchGenRef.current++;   // cancel any in-flight fetch
     setAppUser(null);
+    setIsFetchingUser(false); // clear loading indicator immediately
     await signOut();
   }, [signOut]);
 
