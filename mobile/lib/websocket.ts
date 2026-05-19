@@ -14,17 +14,28 @@ export type NotificationPayload = {
 };
 
 type NotificationHandler = (notification: NotificationPayload) => void;
+type TokenGetter = () => Promise<string | null>;
 
 let stompClient: Client | null = null;
+let _getWsToken: TokenGetter | null = null;
 
-export function connectWS(token: string, userId: string, onNotification: NotificationHandler): void {
+/** Wire in the Clerk getToken function (called from ClerkTokenBridge in _layout.tsx). */
+export const setWsTokenGetter = (fn: TokenGetter) => {
+  _getWsToken = fn;
+};
+
+export function connectWS(userId: string, onNotification: NotificationHandler): void {
   if (stompClient?.active) {
     stompClient.deactivate();
   }
 
   stompClient = new Client({
     webSocketFactory: () => new SockJS(WS_URL) as WebSocket,
-    connectHeaders: { Authorization: `Bearer ${token}` },
+    // Token is fetched fresh before every connect / reconnect attempt
+    beforeConnect: async () => {
+      const token = _getWsToken ? await _getWsToken() : null;
+      stompClient!.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    },
     reconnectDelay: 8000,
     onConnect: () => {
       stompClient!.subscribe(

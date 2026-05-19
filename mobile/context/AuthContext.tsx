@@ -1,25 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
-import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { login as apiLogin, register as apiRegister, logout as apiLogout, getStoredUser } from '../lib/auth';
+import { createContext, useContext, useEffect, useRef, useCallback, useState, type ReactNode } from 'react';
+import { useAuth as useClerkAuth, useClerk } from '@clerk/clerk-expo';
 import { api } from '../lib/api';
 import type { User } from '../lib/types';
-
-// ─── Session expiry constants ────────────────────────────────────────────────
-// The app forces re-login if it has been closed / backgrounded for longer than
-// this period. Updated while the app is active; checked every time the app
-// comes to the foreground. No polling — driven entirely by AppState events.
-const SESSION_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
-const LAST_SEEN_KEY = 'session_last_seen';
-const HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000; // refresh timestamp every 30 min
-// ─────────────────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (displayName: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -27,124 +13,63 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isSignedIn, isLoaded } = useClerkAuth();
+  const { signOut } = useClerk();
 
-  // Restore session on mount — includes session-expiry gate
-  useEffect(() => {
-    const init = async () => {
-      // ── Session expiry check ────────────────────────────────────────────────
-      // If the app was killed / sent to background for more than SESSION_TTL_MS,
-      // discard the stored session and send the user to the login screen.
-      // Checked before restoring state so the transition is immediate.
-      const lastSeen = await SecureStore.getItemAsync(LAST_SEEN_KEY);
-      // null lastSeen = first launch after install or SecureStore externally cleared.
-      // Intentionally allowed: no session to expire yet; the guard only applies
-      // once a valid session has been established and the key written.
-      if (lastSeen && Date.now() - parseInt(lastSeen, 10) > SESSION_TTL_MS) {
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        await SecureStore.deleteItemAsync('user');
-        await SecureStore.deleteItemAsync(LAST_SEEN_KEY);
-        setUser(null);
-        setIsLoading(false);
-        return;
+  const [appUser, setAppUser] = useState<User | null>(null);
+  const [isFetchingUser, setIsFetchingUser] = useState(false);
+
+  // Generation counter — only the most-recently-started fetchAppUser() call may
+  // write to state. Prevents a stale GET from overwriting a fresher refreshUser().
+  const fetchGenRef = useRef(0);
+
+  const fetchAppUser = useCallback(async (): Promise<void> => {
+    const generation = ++fetchGenRef.current;
+    setIsFetchingUser(true);
+    try {
+      const user = await api.get<User>('/users/me');
+      if (generation === fetchGenRef.current) {
+        setAppUser(user);
       }
-      // ────────────────────────────────────────────────────────────────────────
-
-      const u = await getStoredUser();
-      if (u) {
-        // Refresh the timestamp now that the session is confirmed active
-        await SecureStore.setItemAsync(LAST_SEEN_KEY, Date.now().toString());
+    } catch {
+      if (generation === fetchGenRef.current) {
+        setAppUser(null);
       }
-      setUser(u);
-      setIsLoading(false);
-    };
-
-    init();
+    } finally {
+      if (generation === fetchGenRef.current) {
+        setIsFetchingUser(false);
+      }
+    }
   }, []);
 
-  // `router` is expo-router's module-level singleton (not a hook return value),
-  // so its identity is stable across renders and safe to omit from deps.
+  // Whenever Clerk sign-in state changes, sync the app user
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (isSignedIn) {
+      fetchAppUser();
+    } else {
+      fetchGenRef.current++; // cancel any in-flight fetch
+      setAppUser(null);
+      setIsFetchingUser(false);
+    }
+  }, [isSignedIn, isLoaded, fetchAppUser]);
+
   const logout = useCallback(async () => {
-    try {
-      await apiLogout();
-    } catch {
-      // Ensure local session is cleared even if the API call fails
-    }
-    await SecureStore.deleteItemAsync(LAST_SEEN_KEY);
-    setUser(null);
-    router.replace('/login');
-  }, []);
+    fetchGenRef.current++;
+    setAppUser(null);
+    await signOut();
+  }, [signOut]);
 
-  // ── Session guard: AppState + periodic heartbeat ───────────────────────────
-  // Fires only when the user is authenticated. Uses the React Native AppState
-  // API (zero cost while inactive) plus a low-frequency interval to keep the
-  // timestamp fresh during long uninterrupted foreground sessions.
-  useEffect(() => {
-    if (!user) return;
+  const refreshUser = useCallback(async () => {
+    await fetchAppUser();
+  }, [fetchAppUser]);
 
-    const updateHeartbeat = () =>
-      SecureStore.setItemAsync(LAST_SEEN_KEY, Date.now().toString());
-
-    const onAppStateChange = async (state: AppStateStatus) => {
-      if (state !== 'active') return;
-
-      const lastSeen = await SecureStore.getItemAsync(LAST_SEEN_KEY);
-      if (lastSeen && Date.now() - parseInt(lastSeen, 10) > SESSION_TTL_MS) {
-        // App was in background / killed for > 48 h → force re-login
-        await logout();
-        return;
-      }
-      // App is back to foreground — refresh the timestamp
-      await updateHeartbeat();
-    };
-
-    const sub = AppState.addEventListener('change', onAppStateChange);
-    // Keep timestamp fresh for long uninterrupted foreground sessions
-    const interval = setInterval(updateHeartbeat, HEARTBEAT_INTERVAL_MS);
-
-    return () => {
-      sub.remove();
-      clearInterval(interval);
-    };
-  }, [user, logout]);
-  // ──────────────────────────────────────────────────────────────────────────
-
-  async function login(email: string, password: string) {
-    const data = await apiLogin(email, password);
-    // Reset the last-seen clock so the 48-h window starts fresh on login
-    await SecureStore.setItemAsync(LAST_SEEN_KEY, Date.now().toString());
-    setUser(data.user);
-    router.replace('/(tabs)');
-  }
-
-  async function register(displayName: string, email: string, password: string, role: string) {
-    const data = await apiRegister(displayName, email, password, role);
-    await SecureStore.setItemAsync(LAST_SEEN_KEY, Date.now().toString());
-    setUser(data.user);
-    router.replace('/(tabs)');
-  }
-
-  async function refreshUser() {
-    try {
-      const updated = await api.get<User>('/users/me');
-      const userToStore: User = {
-        id: updated.id,
-        email: updated.email,
-        displayName: updated.displayName,
-        role: updated.role,
-        avatarUrl: updated.avatarUrl,
-      };
-      await SecureStore.setItemAsync('user', JSON.stringify(userToStore));
-      setUser(userToStore);
-    } catch {
-      // ignore — user stays as-is
-    }
-  }
+  // isLoading = Clerk hasn't resolved yet, OR user is signed in but we
+  // haven't fetched the app user yet (blocks ProtectedRoute from flickering)
+  const isLoading = !isLoaded || (!!isSignedIn && isFetchingUser && !appUser);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user: appUser, isLoading, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

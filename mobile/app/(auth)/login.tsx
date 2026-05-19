@@ -4,13 +4,13 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { useSignIn } from '@clerk/clerk-expo';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useOrbAnimation } from '../../hooks/useOrbAnimation';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { signIn, setActive, isLoaded } = useSignIn();
   const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,26 +22,35 @@ export default function LoginScreen() {
   const a2 = useOrbAnimation(5800, 0.35); // medium bottom-left — slower
   const a3 = useOrbAnimation(3600, 0.65); // small centre — fastest
 
-  // Orb 1: large white circle, top-right corner → floats up
-  const orb1Y      = a1.interpolate({ inputRange: [0, 1], outputRange: [0, -35] });
+  const orb1Y       = a1.interpolate({ inputRange: [0, 1], outputRange: [0, -35] });
   const orb1Opacity = a1.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.10, 0.22, 0.10] });
 
-  // Orb 2: medium indigo-ish circle, bottom-left → drifts diagonally
-  const orb2Y      = a2.interpolate({ inputRange: [0, 1], outputRange: [0, 28] });
-  const orb2X      = a2.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
+  const orb2Y       = a2.interpolate({ inputRange: [0, 1], outputRange: [0, 28] });
+  const orb2X       = a2.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
   const orb2Opacity = a2.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.14, 0.26, 0.14] });
 
-  // Orb 3: small circle, centre → scale pulse
-  const orb3Scale  = a3.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
+  const orb3Scale   = a3.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
   const orb3Opacity = a3.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.07, 0.18, 0.07] });
 
   async function handleLogin() {
+    if (!isLoaded) return;
     if (!email || !password) return Alert.alert('Error', 'Completa todos los campos');
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      const result = await signIn.create({
+        identifier: email.trim().toLowerCase(),
+        password,
+      });
+      if (result.status === 'complete') {
+        // Clerk is signed in — AuthContext detects isSignedIn change and fetches /users/me
+        await setActive({ session: result.createdSessionId });
+      } else {
+        Alert.alert('Error', 'No se pudo completar el inicio de sesión. Verifica tus datos.');
+      }
     } catch (e: unknown) {
-      Alert.alert('Error', (e as Error)?.message ?? 'No se pudo iniciar sesión');
+      const clerkErr = e as { errors?: Array<{ message?: string }> };
+      const msg = clerkErr?.errors?.[0]?.message ?? (e as Error)?.message ?? 'No se pudo iniciar sesión';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -64,9 +73,9 @@ export default function LoginScreen() {
           alignItems: 'center',
           paddingTop: 80,
           paddingBottom: 40,
-          overflow: 'hidden',    // clip orbs that extend outside
+          overflow: 'hidden',
         }}>
-          {/* Orb 1 — large, top-right, white */}
+          {/* Orb 1 */}
           <Animated.View style={{
             position: 'absolute',
             width: 300, height: 300, borderRadius: 150,
@@ -75,8 +84,7 @@ export default function LoginScreen() {
             opacity: orb1Opacity,
             transform: [{ translateY: orb1Y }],
           }} />
-
-          {/* Orb 2 — medium, bottom-left, soft indigo */}
+          {/* Orb 2 */}
           <Animated.View style={{
             position: 'absolute',
             width: 220, height: 220, borderRadius: 110,
@@ -85,8 +93,7 @@ export default function LoginScreen() {
             opacity: orb2Opacity,
             transform: [{ translateY: orb2Y }, { translateX: orb2X }],
           }} />
-
-          {/* Orb 3 — small, centre area, white, scale pulse */}
+          {/* Orb 3 */}
           <Animated.View style={{
             position: 'absolute',
             width: 160, height: 160, borderRadius: 80,
@@ -96,16 +103,10 @@ export default function LoginScreen() {
             transform: [{ scale: orb3Scale }],
           }} />
 
-          {/* Branding (on top of orbs via natural z-order) */}
-          <Text style={{
-            fontSize: 32, fontWeight: '800', color: '#fff',
-            letterSpacing: -0.5, zIndex: 1,
-          }}>
+          <Text style={{ fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -0.5, zIndex: 1 }}>
             EduPlatform
           </Text>
-          <Text style={{
-            color: '#C7D2FE', marginTop: 4, fontSize: 15, zIndex: 1,
-          }}>
+          <Text style={{ color: '#C7D2FE', marginTop: 4, fontSize: 15, zIndex: 1 }}>
             Aprende y enseña en tiempo real
           </Text>
         </View>
@@ -119,17 +120,12 @@ export default function LoginScreen() {
           padding: 28,
           marginTop: -28,
         }}>
-          <Text style={{
-            fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 24,
-          }}>
+          <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 24 }}>
             Iniciar sesión
           </Text>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{
-              fontSize: 13, fontWeight: '600',
-              color: colors.textSecondary, marginBottom: 6,
-            }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 }}>
               Correo electrónico
             </Text>
             <TextInput
@@ -149,10 +145,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={{ marginBottom: 24 }}>
-            <Text style={{
-              fontSize: 13, fontWeight: '600',
-              color: colors.textSecondary, marginBottom: 6,
-            }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 }}>
               Contraseña
             </Text>
             <View style={{
@@ -167,10 +160,7 @@ export default function LoginScreen() {
                 autoComplete="current-password"
                 placeholder="••••••••"
                 placeholderTextColor={colors.textMuted}
-                style={{
-                  flex: 1, paddingHorizontal: 16, paddingVertical: 13,
-                  fontSize: 15, color: colors.text,
-                }}
+                style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 13, fontSize: 15, color: colors.text }}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(v => !v)}
@@ -186,9 +176,9 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             onPress={handleLogin}
-            disabled={loading}
+            disabled={loading || !isLoaded}
             style={{
-              backgroundColor: loading ? '#A5B4FC' : '#4F46E5',
+              backgroundColor: (loading || !isLoaded) ? '#A5B4FC' : '#4F46E5',
               borderRadius: 12, paddingVertical: 15, alignItems: 'center',
             }}
           >
@@ -197,16 +187,9 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={{
-            flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 4,
-          }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-              ¿No tienes cuenta?
-            </Text>
-            <Link
-              href="/(auth)/register"
-              style={{ color: '#4F46E5', fontWeight: '600', fontSize: 14 }}
-            >
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>¿No tienes cuenta?</Text>
+            <Link href="/(auth)/register" style={{ color: '#4F46E5', fontWeight: '600', fontSize: 14 }}>
               Regístrate
             </Link>
           </View>

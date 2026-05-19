@@ -41,3 +41,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# IDE / AI tools
+.idea/
+.vscode/
+.qodo/
+.cursor/
+.aider*

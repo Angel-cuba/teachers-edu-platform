@@ -4,14 +4,52 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
+import { ClerkProvider, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { connectWS, disconnectWS } from '../lib/websocket';
+import { setClerkTokenGetter } from '../lib/api';
+import { setWsTokenGetter } from '../lib/websocket';
+
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in environment');
+}
+
+// Clerk token cache backed by expo-secure-store
+const tokenCache = {
+  async getToken(key: string) {
+    try { return await SecureStore.getItemAsync(key); }
+    catch { return null; }
+  },
+  async saveToken(key: string, value: string) {
+    try { await SecureStore.setItemAsync(key, value); }
+    catch {}
+  },
+  async clearToken(key: string) {
+    try { await SecureStore.deleteItemAsync(key); }
+    catch {}
+  },
+};
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
+
+/** Wires the Clerk token getter into api.ts and websocket.ts right after ClerkProvider mounts. */
+function ClerkTokenBridge() {
+  const { getToken } = useClerkAuth();
+
+  useEffect(() => {
+    const getter = () => getToken();
+    setClerkTokenGetter(getter);
+    setWsTokenGetter(getter);
+    // Nothing to clean up — getter identity is stable
+  }, [getToken]);
+
+  return null;
+}
 
 function RootGuard() {
   const { user, isLoading } = useAuth();
@@ -39,38 +77,31 @@ function AppShell() {
       disconnectWS();
       return;
     }
-    let cancelled = false;
-    SecureStore.getItemAsync('accessToken').then(token => {
-      if (cancelled || !token) return;
-      connectWS(token, user.id, (notification) => {
-        // Always refresh the notification badge
-        qc.invalidateQueries({ queryKey: ['notifications'] });
 
-        if (notification.type === 'GRADE_PUBLISHED') {
-          // A submission was graded — update student views
-          qc.invalidateQueries({ queryKey: ['student-pending-exercises'] });
-          qc.invalidateQueries({ queryKey: ['my-submissions'] });
-          qc.invalidateQueries({ queryKey: ['my-results'] });
-          qc.invalidateQueries({ queryKey: ['exercises'] }); // mySubmissionStatus on course detail
-          qc.invalidateQueries({ queryKey: ['submissions'] }); // covers ['submissions', id, 'mine'] on exercise detail
-        } else if (notification.type === 'NEW_EXERCISE') {
-          // A new exercise was published
-          qc.invalidateQueries({ queryKey: ['student-pending-exercises'] });
-          qc.invalidateQueries({ queryKey: ['exercises'] });
-          qc.invalidateQueries({ queryKey: ['student-courses'] });
-          qc.invalidateQueries({ queryKey: ['teacher-courses'] });
-        } else if (notification.type === 'SUBMISSION_RECEIVED') {
-          // A student submitted — update teacher pending queue
-          // TODO: backend does not yet emit SUBMISSION_RECEIVED — add to NotificationService once ready
-          qc.invalidateQueries({ queryKey: ['pending-submissions'] });
-        }
-      });
+    // connectWS now uses beforeConnect to fetch a fresh Clerk token automatically
+    connectWS(user.id, (notification) => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+
+      if (notification.type === 'GRADE_PUBLISHED') {
+        qc.invalidateQueries({ queryKey: ['student-pending-exercises'] });
+        qc.invalidateQueries({ queryKey: ['my-submissions'] });
+        qc.invalidateQueries({ queryKey: ['my-results'] });
+        qc.invalidateQueries({ queryKey: ['exercises'] });
+        qc.invalidateQueries({ queryKey: ['submissions'] });
+      } else if (notification.type === 'NEW_EXERCISE') {
+        qc.invalidateQueries({ queryKey: ['student-pending-exercises'] });
+        qc.invalidateQueries({ queryKey: ['exercises'] });
+        qc.invalidateQueries({ queryKey: ['student-courses'] });
+        qc.invalidateQueries({ queryKey: ['teacher-courses'] });
+      } else if (notification.type === 'SUBMISSION_RECEIVED') {
+        qc.invalidateQueries({ queryKey: ['pending-submissions'] });
+      }
     });
+
     return () => {
-      cancelled = true;
       disconnectWS();
     };
-  }, [user?.id]);
+  }, [user?.id, qc]);
 
   return (
     <>
@@ -90,15 +121,18 @@ function AppShell() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <LanguageProvider>
-          <AuthProvider>
-            <RootGuard />
-            <AppShell />
-          </AuthProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache}>
+      <ClerkTokenBridge />
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <RootGuard />
+              <AppShell />
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
