@@ -19,6 +19,9 @@ build/
 # macOS
 .DS_Store
 
-# IDE
+# IDE / AI tools
 .idea/
 .vscode/
+.qodo/
+.cursor/
+.aider*

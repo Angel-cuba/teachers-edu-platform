@@ -1,8 +1,14 @@
 target/
 *.iml
-.idea/
 *.class
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
 .env
 *.log
+
+# IDE / AI tools
+.idea/
+.vscode/
+.qodo/
+.cursor/
+.aider*
