@@ -19,8 +19,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${CLERK_JWKS_URI:https://your-clerk-domain.clerk.accounts.dev/.well-known/jwks.json}
-          issuer-uri: ${CLERK_ISSUER_URI:https://your-clerk-domain.clerk.accounts.dev}
+          # Set CLERK_JWKS_URI and CLERK_ISSUER_URI from your Clerk Dashboard → API Keys
+          # CLERK_ISSUER_URI must match the exact "iss" value in a decoded Clerk session token
+          # (typically https://<your-clerk-frontend-api>, e.g. https://clerk.yourapp.com)
+          jwk-set-uri: ${CLERK_JWKS_URI}
+          issuer-uri: ${CLERK_ISSUER_URI}
   servlet:
     multipart:
       enabled: true

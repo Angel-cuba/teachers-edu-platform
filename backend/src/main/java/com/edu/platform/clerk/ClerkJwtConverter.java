@@ -3,13 +3,15 @@ package com.edu.platform.clerk;
 import com.edu.platform.user.User;
 import com.edu.platform.user.UserRepository;
 import com.edu.platform.user.UserRole;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Converts a Clerk-issued JWT into a Spring Security authentication token.
@@ -17,24 +19,40 @@ import org.springframework.stereotype.Component;
  * On each authenticated request:
  * 1. Extracts the Clerk user ID from the JWT subject.
  * 2. Looks up (or lazily provisions) a local User row keyed by clerkId.
- * 3. Returns a UsernamePasswordAuthenticationToken backed by the User entity.
+ * 3. Returns an AbstractAuthenticationToken backed by the User entity.
  *
  * Role is sourced from the JWT claim "role" (set via Clerk session claims template).
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ClerkJwtConverter implements Converter<Jwt, UsernamePasswordAuthenticationToken> {
+public class ClerkJwtConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     private final UserRepository userRepository;
 
     @Override
     @Transactional
-    public UsernamePasswordAuthenticationToken convert(Jwt jwt) {
+    public AbstractAuthenticationToken convert(Jwt jwt) {
         String clerkId = jwt.getSubject();
         User user = userRepository.findByClerkId(clerkId)
-                .orElseGet(() -> provisionUser(jwt, clerkId));
+                .orElseGet(() -> tryProvisionUser(jwt, clerkId));
         return new UsernamePasswordAuthenticationToken(user, jwt, user.getAuthorities());
+    }
+
+    /**
+     * Attempts to insert a new User row for a first-time Clerk login.
+     * Handles the race condition where two concurrent requests both try to
+     * provision the same user: the loser of the DB unique constraint re-fetches.
+     */
+    private User tryProvisionUser(Jwt jwt, String clerkId) {
+        try {
+            return provisionUser(jwt, clerkId);
+        } catch (DataIntegrityViolationException e) {
+            log.debug("Race condition on user provision for clerkId={} — re-fetching", clerkId);
+            return userRepository.findByClerkId(clerkId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Could not provision or find user for clerkId=" + clerkId, e));
+        }
     }
 
     private User provisionUser(Jwt jwt, String clerkId) {

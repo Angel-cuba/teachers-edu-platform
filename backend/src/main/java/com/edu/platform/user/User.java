@@ -13,22 +13,27 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
+@ToString(onlyExplicitlyIncluded = true)
 public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @ToString.Include
     private UUID id;
 
     /** Clerk user ID — e.g. "user_2abc..." */
     @Column(unique = true)
+    @ToString.Include
     private String clerkId;
 
     @Column(nullable = false, unique = true)
+    @ToString.Include
     private String email;
 
     /** Nullable: password auth is now handled by Clerk */
