@@ -11,7 +11,6 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Converts a Clerk-issued JWT into a Spring Security authentication token.
@@ -31,7 +30,10 @@ public class ClerkJwtConverter implements Converter<Jwt, AbstractAuthenticationT
     private final UserRepository userRepository;
 
     @Override
-    @Transactional
+    // No @Transactional here — each repository call manages its own transaction.
+    // With an outer transaction, DataIntegrityViolationException is thrown at commit time
+    // (after tryProvisionUser returns), so the catch block never fires. Without it,
+    // save() commits immediately and the exception is thrown synchronously inside the catch.
     public AbstractAuthenticationToken convert(Jwt jwt) {
         String clerkId = jwt.getSubject();
         User user = userRepository.findByClerkId(clerkId)

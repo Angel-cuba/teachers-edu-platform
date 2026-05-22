@@ -53,6 +53,15 @@ public class UserController {
             user.setAvatarUrl(avatarUrl.isBlank() ? null : avatarUrl);
         }
 
+        String roleStr = body.get("role");
+        if (roleStr != null && !roleStr.isBlank()) {
+            try {
+                user.setRole(UserRole.valueOf(roleStr.toUpperCase().trim()));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid role: " + roleStr));
+            }
+        }
+
         user = userService.save(user);
         return ResponseEntity.ok(toMap(user));
     }
