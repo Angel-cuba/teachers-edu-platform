@@ -1,8 +1,12 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5433/eduplatform
+    url: jdbc:postgresql://postgres:5432/eduplatform
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 logging:
   level:

@@ -39,7 +39,7 @@ app:
     dir: ${user.home}/Teachers-app-uploads/avatars
 
 clerk:
-  webhook-secret: ${CLERK_WEBHOOK_SECRET:}
+  webhook-secret: ${CLERK_WEBHOOK_SECRET}
 
 logging:
   level:

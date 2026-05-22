@@ -53,7 +53,7 @@ export default function ForgotPasswordScreen() {
         code,
         password,
       });
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         // Activate the session — RootGuard detects user and navigates to (tabs) automatically
         await setActive({ session: result.createdSessionId });
       } else {

@@ -77,7 +77,7 @@ const RegisterPage: React.FC = () => {
         lastName,
       });
 
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         // No email verification required (dev mode or disabled in Clerk dashboard)
         await completeSignUp(result.createdSessionId!);
       } else {
@@ -103,7 +103,7 @@ const RegisterPage: React.FC = () => {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code: verifyCode });
 
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         await completeSignUp(result.createdSessionId!);
       } else {
         toast.error(t.auth.verificationIncomplete);

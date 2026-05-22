@@ -67,7 +67,7 @@ const ForgotPasswordPage: React.FC = () => {
         code,
         password,
       });
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         toast.success(t.profile.resetSuccess);
         navigate('/dashboard', { replace: true });

@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@types/sockjs-client": "^1.5.4",
     "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
   },

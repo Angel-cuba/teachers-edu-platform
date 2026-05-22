@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
     try {
       const result = await signIn.create({ identifier: email, password });
 
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         navigate(from, { replace: true });
       } else {

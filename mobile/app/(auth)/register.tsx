@@ -78,7 +78,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         // Activate the session — triggers AuthContext isSignedIn → fetchAppUser() (gen N)
         await setActive({ session: result.createdSessionId });
         // PATCH role + displayName. If this fails, sign out to avoid the user

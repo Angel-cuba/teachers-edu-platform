@@ -42,7 +42,7 @@ export default function LoginScreen() {
         identifier: email.trim().toLowerCase(),
         password,
       });
-      if (result.status === 'complete') {
+      if (result.status != null && result.status === 'complete') {
         // Clerk is signed in — AuthContext detects isSignedIn change and fetches /users/me
         await setActive({ session: result.createdSessionId });
       } else {
