@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useLang } from '../contexts/LanguageContext';
+import { getClerkErrorMessage } from '../utils/clerkError';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -19,6 +21,7 @@ const LoginPage: React.FC = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLang();
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
@@ -30,7 +33,7 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoaded) return;
-    if (!email || !password) { toast.error('Please fill in all fields'); return; }
+    if (!email || !password) { toast.error(t.common.fieldsRequired); return; }
 
     setIsLoading(true);
     try {
@@ -44,12 +47,7 @@ const LoginPage: React.FC = () => {
         toast.error('Sign-in incomplete. Please try again.');
       }
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ message?: string; longMessage?: string }> };
-      const msg =
-        clerkErr?.errors?.[0]?.longMessage ||
-        clerkErr?.errors?.[0]?.message ||
-        'Invalid email or password';
-      toast.error(msg);
+      toast.error(getClerkErrorMessage(err, 'Invalid email or password'));
     } finally {
       setIsLoading(false);
     }
@@ -73,8 +71,8 @@ const LoginPage: React.FC = () => {
           >
             <GraduationCap className="w-8 h-8 text-white" />
           </motion.div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to EduPlatform</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.auth.welcomeBack}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.auth.loginSubtitle}</p>
         </div>
 
         {/* Glass card */}
@@ -83,7 +81,7 @@ const LoginPage: React.FC = () => {
                         border border-gray-200/60 dark:border-white/10 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className={lbl}>Email address</label>
+              <label className={lbl}>{t.auth.email}</label>
               <input
                 type="email"
                 value={email}
@@ -96,7 +94,7 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className={lbl}>Password</label>
+              <label className={lbl}>{t.auth.password}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -120,6 +118,15 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex justify-end -mt-1">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+              >
+                {t.profile.forgotPassword}
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={isLoading || !isLoaded}
@@ -133,17 +140,17 @@ const LoginPage: React.FC = () => {
               {isLoading && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               )}
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? t.common.loading : t.auth.loginBtn}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Don't have an account?{' '}
+            {t.auth.noAccount}{' '}
             <Link
               to="/register"
               className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700"
             >
-              Create one
+              {t.auth.registerBtn}
             </Link>
           </p>
         </div>

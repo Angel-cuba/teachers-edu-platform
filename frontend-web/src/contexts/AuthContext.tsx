@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** True when Clerk session exists, even if the backend user hasn't loaded yet. */
+  isSignedIn: boolean;
   logout: () => Promise<void>;
   /** Re-fetches /api/users/me and updates the cached user (call after profile mutations). */
   refreshUser: () => Promise<void>;
@@ -98,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user: appUser,
         isLoading,
         isAuthenticated: !!isSignedIn && !!appUser,
+        isSignedIn: !!isSignedIn,
         logout,
         refreshUser,
       }}

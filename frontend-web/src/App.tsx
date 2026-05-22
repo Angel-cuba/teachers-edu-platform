@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -16,6 +17,7 @@ import MyResultsPage from "./pages/MyResultsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import ProfilePage from "./pages/ProfilePage";
 import PendingGradesPage from "./pages/PendingGradesPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 export default function App() {
   return (
@@ -24,8 +26,19 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login/*" element={<LoginPage />} />
-          <Route path="/register/*" element={<RegisterPage />} />
+          <Route
+            path="/login/*"
+            element={<PublicRoute><LoginPage /></PublicRoute>}
+          />
+          <Route
+            path="/register/*"
+            element={<PublicRoute><RegisterPage /></PublicRoute>}
+          />
+          {/* No /* wildcard — custom page, not a Clerk embedded component */}
+          <Route
+            path="/forgot-password"
+            element={<PublicRoute><ForgotPasswordPage /></PublicRoute>}
+          />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

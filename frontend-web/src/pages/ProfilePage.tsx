@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { User, Lock, Save, Sun, Moon, Monitor, ExternalLink } from 'lucide-react'
+import { User, Lock, Save, Sun, Moon, Monitor, ExternalLink, ShieldCheck } from 'lucide-react'
 import { useClerk } from '@clerk/clerk-react'
 import api from '../api/axios'
 import { extractErrorMessage } from '../api/errorMessage'
@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme, type ThemeMode } from '../contexts/ThemeContext'
 import { useLang } from '../contexts/LanguageContext'
 import type { Lang } from '../i18n'
+import type { UserRole } from '../types'
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth()
@@ -33,6 +34,20 @@ export default function ProfilePage() {
       setIsDirty(false)
       await refreshUser()
       toast.success(t.profile.profileUpdated)
+    },
+    onError: (e: unknown) => toast.error(extractErrorMessage(e, t.profile.errorUpdate)),
+  })
+
+  const [selectedRole, setSelectedRole] = useState<UserRole>(user?.role ?? 'STUDENT')
+  useEffect(() => {
+    if (user?.role) setSelectedRole(user.role)
+  }, [user?.role])
+
+  const updateRole = useMutation({
+    mutationFn: () => api.patch('/users/me', { role: selectedRole }),
+    onSuccess: async () => {
+      await refreshUser()
+      toast.success(t.profile.roleUpdated)
     },
     onError: (e: unknown) => toast.error(extractErrorMessage(e, t.profile.errorUpdate)),
   })
@@ -110,6 +125,39 @@ export default function ProfilePage() {
             {updateProfile.isPending ? t.profile.saving : t.profile.saveName}
           </button>
         </form>
+      </div>
+
+      {/* Role */}
+      <div className={card}>
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={18} className="text-indigo-600 dark:text-indigo-400" />
+          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t.profile.roleLabel}</h2>
+        </div>
+        <div className="flex gap-3">
+          {(['TEACHER', 'STUDENT'] as UserRole[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setSelectedRole(r)}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                selectedRole === r
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              {t.roles[r]}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={updateRole.isPending || selectedRole === user?.role}
+          onClick={() => updateRole.mutate()}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+        >
+          <Save size={15} />
+          {updateRole.isPending ? t.profile.saving : t.profile.saveRole}
+        </button>
       </div>
 
       {/* Appearance */}
