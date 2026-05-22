@@ -63,6 +63,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+        VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: edu_frontend
     ports:
       - "3000:80"
