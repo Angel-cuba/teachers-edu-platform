@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { Course } from '../types';
+import { extractErrorMessage } from '../api/errorMessage';
 
 const CourseCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,12 +26,7 @@ const CourseCreatePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
       navigate(`/courses/${course.id}`);
     },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to create course';
-      toast.error(msg);
-    },
+    onError: (err: unknown) => toast.error(extractErrorMessage(err, 'Failed to create course')),
   });
 
   const handleChange = (

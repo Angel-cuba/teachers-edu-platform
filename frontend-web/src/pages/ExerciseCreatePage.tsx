@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, ImageIcon, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { Course, Exercise } from '../types';
+import { extractErrorMessage } from '../api/errorMessage';
 
 const ExerciseCreatePage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -52,12 +53,7 @@ const ExerciseCreatePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['exercises', courseId] });
       navigate(`/exercises/${exercise.id}/submissions`);
     },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to create exercise';
-      toast.error(msg);
-    },
+    onError: (err: unknown) => toast.error(extractErrorMessage(err, 'Failed to create exercise')),
   });
 
   const handleChange = (

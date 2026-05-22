@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, Eye, EyeOff, Mail } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff, Mail, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSignUp } from '@clerk/clerk-react';
 import api from '../api/axios';
 import { useAuth } from '../hooks/useAuth';
 import AuthLayout from '../components/AuthLayout';
+import { generatePassword } from '../utils/passwordUtils';
+import { PasswordStrengthBar } from '../components/PasswordStrengthBar';
+import { getClerkErrorMessage } from '../utils/clerkError';
+import { useLang } from '../contexts/LanguageContext';
 
 const inp =
   'w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg ' +
@@ -21,6 +25,7 @@ type Step = 'register' | 'verify';
 const RegisterPage: React.FC = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
   const { refreshUser } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
 
   // Registration form state
@@ -50,13 +55,13 @@ const RegisterPage: React.FC = () => {
     if (!isLoaded) return;
 
     if (!form.displayName || !form.email || !form.password) {
-      toast.error('Please fill in all required fields'); return;
+      toast.error(t.common.fieldsRequired); return;
     }
     if (form.password.length < 8) {
-      toast.error('Password must be at least 8 characters'); return;
+      toast.error(t.auth.passwordMinLength); return;
     }
     if (form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match'); return;
+      toast.error(t.auth.passwordsMismatch); return;
     }
 
     setIsLoading(true);
@@ -79,15 +84,10 @@ const RegisterPage: React.FC = () => {
         // Email verification required — Clerk will send the code
         await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
         setStep('verify');
-        toast.success('Check your email for a verification code');
+        toast.success(t.auth.checkVerificationEmail);
       }
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ message?: string; longMessage?: string }> };
-      const msg =
-        clerkErr?.errors?.[0]?.longMessage ||
-        clerkErr?.errors?.[0]?.message ||
-        'Registration failed. Please try again.';
-      toast.error(msg);
+      toast.error(getClerkErrorMessage(err, t.auth.registrationFailed));
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +97,7 @@ const RegisterPage: React.FC = () => {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoaded) return;
-    if (!verifyCode.trim()) { toast.error('Enter the verification code'); return; }
+    if (!verifyCode.trim()) { toast.error(t.auth.enterVerificationCode); return; }
 
     setIsLoading(true);
     try {
@@ -106,15 +106,10 @@ const RegisterPage: React.FC = () => {
       if (result.status === 'complete') {
         await completeSignUp(result.createdSessionId!);
       } else {
-        toast.error('Verification incomplete. Please try again.');
+        toast.error(t.auth.verificationIncomplete);
       }
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ message?: string; longMessage?: string }> };
-      const msg =
-        clerkErr?.errors?.[0]?.longMessage ||
-        clerkErr?.errors?.[0]?.message ||
-        'Invalid verification code';
-      toast.error(msg);
+      toast.error(getClerkErrorMessage(err, t.auth.verificationIncomplete));
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +124,7 @@ const RegisterPage: React.FC = () => {
   //   4. navigate()     → user arrives at dashboard with the correct role already in context
   const completeSignUp = async (sessionId: string) => {
     if (!setActive) {
-      toast.error('Authentication service unavailable. Please refresh and try again.');
+      toast.error(t.auth.authServiceUnavailable);
       return;
     }
 
@@ -139,7 +134,7 @@ const RegisterPage: React.FC = () => {
     try {
       await api.patch('/users/me', { role: form.role });
     } catch {
-      toast.error('Account created but could not set your role. Please contact support.');
+      toast.error(t.auth.roleSetFailed);
       return;
     }
 
@@ -148,7 +143,7 @@ const RegisterPage: React.FC = () => {
     await refreshUser();
 
     navigate('/dashboard', { replace: true });
-    toast.success('Account created!');
+    toast.success(t.auth.accountCreated);
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -175,8 +170,8 @@ const RegisterPage: React.FC = () => {
               >
                 <GraduationCap className="w-8 h-8 text-white" />
               </motion.div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create an account</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Join EduPlatform today</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.auth.createAccount}</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">{t.auth.registerSubtitle}</p>
             </div>
 
             <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl
@@ -184,44 +179,61 @@ const RegisterPage: React.FC = () => {
                             border border-gray-200/60 dark:border-white/10 p-8">
               <form onSubmit={handleRegister} className="space-y-5">
                 <div>
-                  <label className={lbl}>Full name</label>
+                  <label className={lbl}>{t.auth.displayName}</label>
                   <input type="text" name="displayName" value={form.displayName}
                     onChange={handleChange} placeholder="Jane Smith" required className={inp} />
                 </div>
 
                 <div>
-                  <label className={lbl}>Email address</label>
+                  <label className={lbl}>{t.auth.email}</label>
                   <input type="email" name="email" value={form.email}
                     onChange={handleChange} placeholder="you@example.com"
                     required autoComplete="email" className={inp} />
                 </div>
 
                 <div>
-                  <label className={lbl}>I am a...</label>
+                  <label className={lbl}>{t.auth.iAmA}</label>
                   <select name="role" value={form.role} onChange={handleChange} className={inp}>
-                    <option value="STUDENT">Student</option>
-                    <option value="TEACHER">Teacher</option>
+                    <option value="STUDENT">{t.auth.student}</option>
+                    <option value="TEACHER">{t.auth.teacher}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className={lbl}>Password</label>
+                  <label className={lbl}>{t.auth.password}</label>
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} name="password"
                       value={form.password} onChange={handleChange}
-                      placeholder="At least 8 characters" required autoComplete="new-password"
-                      className={inp + ' pr-11'} />
-                    <button type="button" tabIndex={-1}
-                      onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                      placeholder={t.auth.passwordPlaceholder} required autoComplete="new-password"
+                      className={inp + ' pr-20'} />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => {
+                          const p = generatePassword();
+                          setForm(prev => ({ ...prev, password: p, confirmPassword: p }));
+                          setShowPassword(true);
+                        }}
+                        className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors p-0.5"
+                        aria-label="Suggest strong password"
+                        title="Suggest strong password"
+                      >
+                        <Wand2 className="w-4 h-4" />
+                      </button>
+                      <button type="button" tabIndex={-1}
+                        onClick={() => setShowPassword(v => !v)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-0.5"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
+                  <PasswordStrengthBar password={form.password} />
                 </div>
 
                 <div>
-                  <label className={lbl}>Confirm password</label>
+                  <label className={lbl}>{t.auth.confirmPasswordLabel}</label>
                   <div className="relative">
                     <input type={showConfirm ? 'text' : 'password'} name="confirmPassword"
                       value={form.confirmPassword} onChange={handleChange}
@@ -245,15 +257,15 @@ const RegisterPage: React.FC = () => {
                   {isLoading && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
-                  {isLoading ? 'Creating account...' : 'Create account'}
+                  {isLoading ? t.auth.creatingAccount : t.auth.registerBtn}
                 </button>
               </form>
 
               <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                Already have an account?{' '}
+                {t.auth.hasAccount}{' '}
                 <Link to="/login"
                   className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700">
-                  Sign in
+                  {t.auth.loginBtn}
                 </Link>
               </p>
             </div>
@@ -277,9 +289,9 @@ const RegisterPage: React.FC = () => {
               >
                 <Mail className="w-8 h-8 text-white" />
               </motion.div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Check your email</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.auth.checkYourEmail}</h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1">
-                We sent a code to <strong className="text-gray-700 dark:text-gray-200">{form.email}</strong>
+                {t.auth.weSentCodeTo} <strong className="text-gray-700 dark:text-gray-200">{form.email}</strong>
               </p>
             </div>
 
@@ -288,12 +300,12 @@ const RegisterPage: React.FC = () => {
                             border border-gray-200/60 dark:border-white/10 p-8">
               <form onSubmit={handleVerify} className="space-y-5">
                 <div>
-                  <label className={lbl}>Verification code</label>
+                  <label className={lbl}>{t.auth.verificationCodeLabel}</label>
                   <input
                     type="text"
                     value={verifyCode}
                     onChange={e => setVerifyCode(e.target.value)}
-                    placeholder="Enter 6-digit code"
+                    placeholder={t.auth.codePlaceholder}
                     maxLength={6}
                     required
                     autoComplete="one-time-code"
@@ -311,7 +323,7 @@ const RegisterPage: React.FC = () => {
                   {isLoading && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
-                  {isLoading ? 'Verifying...' : 'Verify email'}
+                  {isLoading ? t.auth.verifying : t.auth.verifyEmailBtn}
                 </button>
               </form>
 
@@ -319,7 +331,7 @@ const RegisterPage: React.FC = () => {
                 onClick={() => setStep('register')}
                 className="mt-4 w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
               >
-                ← Back to registration
+                {t.auth.backToRegistration}
               </button>
             </div>
           </motion.div>

@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useAuth } from '../hooks/useAuth';
+import { useLang } from '../contexts/LanguageContext';
 import api from '../api/axios';
 import { Course, Exercise, User } from '../types';
+import { extractErrorMessage } from '../api/errorMessage';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
@@ -27,6 +29,7 @@ type Tab = 'exercises' | 'students';
 const CourseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isTeacher = user?.role === 'TEACHER' || user?.role === 'ADMIN';
@@ -71,10 +74,10 @@ const CourseDetailPage: React.FC = () => {
     onSuccess: (updated) => {
       queryClient.setQueryData(['course', id], updated);
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast.success('Curso actualizado');
+      toast.success(t.courses.courseUpdated);
       setShowEdit(false);
     },
-    onError: () => toast.error('Error al actualizar el curso'),
+    onError: (err: unknown) => toast.error(extractErrorMessage(err, 'Error al actualizar el curso')),
   });
 
   const deleteMutation = useMutation({
@@ -83,10 +86,10 @@ const CourseDetailPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast.success('Curso eliminado');
+      toast.success(t.courses.courseDeleted);
       navigate('/courses');
     },
-    onError: () => toast.error('Error al eliminar el curso'),
+    onError: (err: unknown) => toast.error(extractErrorMessage(err, 'Error al eliminar el curso')),
   });
 
   const openEdit = () => {
