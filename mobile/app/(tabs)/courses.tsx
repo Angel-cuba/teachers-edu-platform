@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { Course } from '../../lib/types';
+import { extractApiError } from '../../utils/extractApiError';
 
 export default function CoursesScreen() {
   const { user } = useAuth();
@@ -26,13 +27,13 @@ export default function CoursesScreen() {
   const enroll = useMutation({
     mutationFn: () => api.post<Course>('/courses/enroll', { enrollCode }),
     onSuccess: () => { Alert.alert('¡Listo!', 'Te uniste al curso'); setShowModal(false); setEnrollCode(''); qc.invalidateQueries({ queryKey: ['courses'] }); },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   const create = useMutation({
     mutationFn: () => api.post<Course>('/courses', { title: createTitle, description: createDesc }),
     onSuccess: () => { Alert.alert('Curso creado'); setShowModal(false); setCreateTitle(''); setCreateDesc(''); qc.invalidateQueries({ queryKey: ['courses'] }); },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   const isTeacher = user?.role === 'TEACHER';

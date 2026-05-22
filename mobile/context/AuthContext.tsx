@@ -10,7 +10,14 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+const defaultAuthContext: AuthContextValue = {
+  user: null,
+  isLoading: true,
+  logout: async () => {},
+  refreshUser: async () => {},
+};
+
+const AuthContext = createContext<AuthContextValue>(defaultAuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { isSignedIn, isLoaded } = useClerkAuth();
@@ -77,7 +84,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  return useContext(AuthContext);
 }

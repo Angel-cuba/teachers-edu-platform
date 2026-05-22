@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { Exercise, Submission } from '../../lib/types';
+import { extractApiError } from '../../utils/extractApiError';
 
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function ExerciseDetailScreen() {
       Alert.alert('¡Enviado!', 'Tu respuesta fue enviada correctamente.');
       qc.invalidateQueries({ queryKey: ['submissions', id] });
     },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}><ActivityIndicator color="#4F46E5" /></View>;

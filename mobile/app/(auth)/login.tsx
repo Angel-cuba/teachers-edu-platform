@@ -8,6 +8,7 @@ import { useSignIn } from '@clerk/clerk-expo';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useOrbAnimation } from '../../hooks/useOrbAnimation';
+import { getClerkErrorMessage } from '../../utils/clerkError';
 
 export default function LoginScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -48,9 +49,7 @@ export default function LoginScreen() {
         Alert.alert('Error', 'No se pudo completar el inicio de sesión. Verifica tus datos.');
       }
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: Array<{ message?: string }> };
-      const msg = clerkErr?.errors?.[0]?.message ?? (e as Error)?.message ?? 'No se pudo iniciar sesión';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', getClerkErrorMessage(e, 'No se pudo iniciar sesión'));
     } finally {
       setLoading(false);
     }
@@ -187,7 +186,13 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 4 }}>
+          <View style={{ alignItems: 'center', marginTop: 14 }}>
+            <Link href="/(auth)/forgot-password" style={{ color: '#4F46E5', fontWeight: '500', fontSize: 14 }}>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16, gap: 4 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>¿No tienes cuenta?</Text>
             <Link href="/(auth)/register" style={{ color: '#4F46E5', fontWeight: '600', fontSize: 14 }}>
               Regístrate

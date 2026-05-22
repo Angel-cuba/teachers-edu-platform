@@ -9,6 +9,7 @@ import { useTheme, type ThemeMode } from '../../context/ThemeContext';
 import { useLang } from '../../context/LanguageContext';
 import type { Lang } from '../../lib/i18n';
 import { api, API_URL, getApiToken } from '../../lib/api';
+import { extractApiError } from '../../utils/extractApiError';
 import { LogOut, User, Camera, Pencil, Check, X, BookOpen, Sun, Moon, Monitor } from 'lucide-react-native';
 
 export default function ProfileScreen() {
@@ -41,7 +42,7 @@ export default function ProfileScreen() {
       await refreshUser();
       setEditingName(false);
     } catch (e: unknown) {
-      Alert.alert(t.common.error, (e as Error).message ?? 'No se pudo guardar el nombre');
+      Alert.alert(t.common.error, extractApiError(e, 'No se pudo guardar el nombre'));
     } finally {
       setSavingName(false);
     }
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
 
       await refreshUser();
     } catch (e: unknown) {
-      Alert.alert(t.common.error, (e as Error).message ?? 'No se pudo subir la foto');
+      Alert.alert(t.common.error, extractApiError(e, 'No se pudo subir la foto'));
     } finally {
       setUploadingAvatar(false);
     }

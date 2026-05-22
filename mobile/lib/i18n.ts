@@ -20,6 +20,7 @@ export const translations = {
       inactive: 'Inactive',
       saving: 'Saving…',
       error: 'Error',
+      passwordStrength: { weak: 'Weak', medium: 'Medium', strong: 'Strong' },
     },
     auth: {
       email: 'Email',
@@ -111,6 +112,7 @@ export const translations = {
       inactive: 'Inactivo',
       saving: 'Guardando…',
       error: 'Error',
+      passwordStrength: { weak: 'Débil', medium: 'Media', strong: 'Fuerte' },
     },
     auth: {
       email: 'Correo electrónico',

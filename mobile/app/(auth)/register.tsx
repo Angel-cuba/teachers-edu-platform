@@ -5,11 +5,14 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { useSignUp } from '@clerk/clerk-expo';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Wand2 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useOrbAnimation } from '../../hooks/useOrbAnimation';
 import { api } from '../../lib/api';
+import { getClerkErrorMessage } from '../../utils/clerkError';
+import { generatePassword } from '../../utils/passwordUtils';
+import { PasswordStrengthBar } from '../../components/PasswordStrengthBar';
 
 const ROLES = [
   { label: 'Soy alumno', value: 'STUDENT' },
@@ -32,8 +35,6 @@ export default function RegisterScreen() {
   // Step 2: email verification
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
-  const [pendingRole, setPendingRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
-  const [pendingName, setPendingName] = useState('');
 
   // Orbs (same visual language as login)
   const a1 = useOrbAnimation(4800, 0.2);
@@ -62,13 +63,9 @@ export default function RegisterScreen() {
       });
       // Trigger email verification
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      setPendingRole(role);
-      setPendingName(name.trim());
       setPendingVerification(true);
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: Array<{ message?: string }> };
-      const msg = clerkErr?.errors?.[0]?.message ?? (e as Error)?.message ?? 'No se pudo registrar';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', getClerkErrorMessage(e, 'No se pudo registrar'));
     } finally {
       setLoading(false);
     }
@@ -87,7 +84,7 @@ export default function RegisterScreen() {
         // PATCH role + displayName. If this fails, sign out to avoid the user
         // landing in the app with an incomplete profile (no role).
         try {
-          await api.patch('/users/me', { role: pendingRole, displayName: pendingName });
+          await api.patch('/users/me', { role, displayName: name.trim() });
         } catch {
           await logout(); // undo session activation — user must retry registration
           Alert.alert('Error', 'No se pudo asignar el rol. Por favor intenta de nuevo.');
@@ -101,9 +98,7 @@ export default function RegisterScreen() {
         Alert.alert('Error', 'No se pudo verificar. Revisa el código e intenta de nuevo.');
       }
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: Array<{ message?: string }> };
-      const msg = clerkErr?.errors?.[0]?.message ?? (e as Error)?.message ?? 'Código inválido';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', getClerkErrorMessage(e, 'Código inválido'));
     } finally {
       setLoading(false);
     }
@@ -262,14 +257,24 @@ export default function RegisterScreen() {
             <TextInput
               value={password} onChangeText={setPassword}
               secureTextEntry={!showPassword} autoCapitalize="none"
+              autoComplete="new-password"
               placeholder="Mínimo 8 caracteres"
               placeholderTextColor={colors.textMuted}
               style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 13, fontSize: 15, color: colors.text }}
             />
-            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ paddingHorizontal: 14 }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => { setPassword(generatePassword()); setShowPassword(true); }}
+              style={{ paddingHorizontal: 8 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Sugerir contraseña segura"
+            >
+              <Wand2 color='#6366F1' size={20} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ paddingHorizontal: 12 }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               {showPassword ? <EyeOff color={colors.textMuted} size={20} /> : <Eye color={colors.textMuted} size={20} />}
             </TouchableOpacity>
           </View>
+          <PasswordStrengthBar password={password} />
         </View>
 
         <TouchableOpacity

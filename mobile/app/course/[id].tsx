@@ -6,6 +6,7 @@ import { BookOpen, Plus, Users, X, Info, ExternalLink, Pencil, Trash2 } from 'lu
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import type { Course, Exercise } from '../../lib/types';
+import { extractApiError } from '../../utils/extractApiError';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'http://localhost:5173';
 
@@ -46,7 +47,7 @@ export default function CourseDetailScreen() {
       setShowCreate(false); setTitle(''); setDescription('');
       qc.invalidateQueries({ queryKey: ['exercises', id] });
     },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   const updateCourse = useMutation({
@@ -57,7 +58,7 @@ export default function CourseDetailScreen() {
       setShowEdit(false);
       Alert.alert('Curso actualizado');
     },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   const deleteCourse = useMutation({
@@ -66,7 +67,7 @@ export default function CourseDetailScreen() {
       qc.invalidateQueries({ queryKey: ['courses'] });
       router.replace('/(tabs)/courses');
     },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   const openEdit = () => {

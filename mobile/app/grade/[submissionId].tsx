@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useFadeInUp } from '../../lib/useFadeInUp';
 import type { Submission } from '../../lib/types';
+import { extractApiError } from '../../utils/extractApiError';
 
 export default function GradeScreen() {
   const { submissionId } = useLocalSearchParams<{ submissionId: string }>();
@@ -40,7 +41,7 @@ export default function GradeScreen() {
       qc.invalidateQueries({ queryKey: ['pending-submissions'] });
       router.back();
     },
-    onError: (e: unknown) => Alert.alert('Error', (e as Error).message),
+    onError: (e: unknown) => Alert.alert('Error', extractApiError(e)),
   });
 
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}><ActivityIndicator color="#4F46E5" /></View>;
