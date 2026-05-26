@@ -92,8 +92,6 @@ export default function RegisterScreen() {
         }
         // refreshUser() (gen N+1) wins over the auto-fetch — correct role guaranteed
         await refreshUser();
-      } else if (result.status === 'needs_second_factor') {
-        Alert.alert('Autenticación adicional requerida', 'Esta cuenta requiere un segundo factor de verificación.');
       } else {
         Alert.alert('Error', 'No se pudo verificar. Revisa el código e intenta de nuevo.');
       }
